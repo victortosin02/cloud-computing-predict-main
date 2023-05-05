@@ -27,20 +27,20 @@ def lambda_handler(event, context):
 
     # Sample text that you would like to email to your recipient 
     # address from your sender address.
-    email_text = 'Insert your sample email here'
+    email_text = 'Here is the sample mail to test my form submission to EDSA using AWS SES and Lambda Function'
 
     # ** SES Functionality **
 
     # Replace sender@example.com with your "From" address.
     # This address must be verified with Amazon SES.
     # --- Insert your code here ---
-    SENDER = 'sender@example.com'
+    SENDER = 'victortosin01@gmail.com'
     # -----------------------------
 
     # Replace recipient@example.com with a "To" address. If your account 
     # is still in the sandbox, this address must be verified.
     # --- Insert your code here ---
-    RECIPIENT = 'recipient@example.com' 
+    RECIPIENT = 'edsa.predicts@explore-ai.net' 
     # -----------------------------
 
 
