@@ -53,10 +53,10 @@ def lambda_handler(event, context):
     # incoming data is sent to the matching column in your DynamoDB table
     # --- Insert your code here ---
     db_response = table.put_item(Item={'ResponsesID': rid, # <--- Insert the correct variable
-                        'Name': 'Victor', # <--- Insert the correct variable
-                        'Email': 'victortosin01@gmail.com', # <--- Insert the correct variable
-                        'Cell': 123456789, # <--- Insert the correct variable
-                        'Message': 'Empty Message' # <--- Insert the correct variable
+                        'Name': 'name', # <--- Insert the correct variable
+                        'Email': 'email', # <--- Insert the correct variable
+                        'Cell': 'phone', # <--- Insert the correct variable
+                        'Message': 'message' # <--- Insert the correct variable
     })
     # -----------------------------
 
