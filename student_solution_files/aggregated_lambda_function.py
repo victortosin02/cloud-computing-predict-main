@@ -15,14 +15,16 @@
 """
 
 # Lambda dependencies
-import boto3    # Python AWS SDK
-import json     # Used for handling API-based data.
-import base64   # Needed to decode the incoming POST data
-import numpy as np # Array manipulation
-# <<< You will need to add additional libraries to complete this script >>> 
+import boto3 
+import json
+import base64
+import random   
+from botocore.exceptions import ClientError 
+import numpy as np
 
-# ** Insert key phrases function **
+# key phrases function
 def key_phrase_finder(list_of_important_phrases, list_of_extracted_phrases):
+
     listing = []
     PhraseChecker = None
 
@@ -46,10 +48,6 @@ def key_phrase_finder(list_of_important_phrases, list_of_extracted_phrases):
         PhraseChecker = False
     
     return listing, PhraseChecker
-    
-    
-
-# -----------------------------
 
 # ** Insert sentiment extraction function **
 def find_max_sentiment(Comprehend_Sentiment_Output):
@@ -71,14 +69,15 @@ def find_max_sentiment(Comprehend_Sentiment_Output):
     print(sentiment_score, Comprehend_Sentiment_Output['Sentiment'])
     
     return Comprehend_Sentiment_Output['Sentiment'], sentiment_score
+
  
 # -----------------------------
 
-# ** Insert email responses function **
+# email responses function
 def email_response(name, critical_phrase_list, list_of_extracted_phrases, AWS_Comprehend_Sentiment_Dump):
-    
+
     # Function Constants
-    SENDER_NAME = 'Place your name here'
+    SENDER_NAME = 'Victor'
     
     # --- Check for the sentiment of the message and find dominant sentiment score ---
     Sentiment_finder = find_max_sentiment(AWS_Comprehend_Sentiment_Dump)
@@ -108,6 +107,7 @@ def email_response(name, critical_phrase_list, list_of_extracted_phrases, AWS_Co
     # --- Generate standard responses ---
     # === DO NOT MODIFY THIS TEXT FOR THE PURPOSE OF PREDICT ASSESSMENT ===
     Greetings_text = f'Good day {name},'
+    
 
     CV_text = 'I see that you mentioned my C.V in your message. \
                I am happy to forward you my C.V in response. \
@@ -198,7 +198,7 @@ def email_response(name, critical_phrase_list, list_of_extracted_phrases, AWS_Co
             Text = "\n \n".join(mytuple)
     
     return Text
- 
+
 # -----------------------------
 
 # Lambda function orchestrating the entire predict logic
@@ -209,36 +209,36 @@ def lambda_handler(event, context):
     dec_dict = json.loads(base64.b64decode(body_enc))
     
 
-    # ** Insert code to write to dynamodb **
-    # <<< Ensure that the DynamoDB write response object is saved 
-    #    as the variable `db_response` >>> 
-    # --- Insert your code here ---
+    # Write to dynamodb
+    rid = random.randint(1, 1000000000) # random id
+    
+    dynamodb = boto3.resource('dynamodb')
 
+    # Instantiate the table. Pass the name of the DynamoDB table created in step 4
+    table = dynamodb.Table('victorportfolio')
+    
+    # ** Write the responses to the table using the put_item method. **
 
-    # Do not change the name of this variable
-    db_response = table.put_item(Item={'ResponsesID': rid, # <--- Insert the correct variable
-                        'Name': dec_dict['name'], # <--- Insert the correct variable
-                        'Email': dec_dict['email'], # <--- Insert the correct variable
-                        'Cell': dec_dict['phone'], # <--- Insert the correct variable
-                        'Message': dec_dict['message'] # <--- Insert the correct variable
+    db_response = table.put_item(Item={'ResponsesID': rid, 
+                        'Name': dec_dict['name'],
+                        'Email': dec_dict['email'],
+                        'Cell': dec_dict['phone'], 
+                        'Message': dec_dict['message']
     })
 
-    # -----------------------------
-    
 
     # --- Amazon Comprehend ---
     comprehend = boto3.client(service_name='comprehend')
     
-    # --- Insert your code here ---
-    enquiry_text = None # <--- Insert code to place the website message into this variable
+    # Message to encode
+    enquiry_text = dec_dict['message']
+    
+    # --- get the sentiment with AWS comprehend ---
+    sentiment = comprehend.detect_sentiment(Text=enquiry_text, LanguageCode='en')
     # -----------------------------
     
-    # --- Insert your code here ---
-    sentiment = None # <---Insert code to get the sentiment with AWS comprehend
-    # -----------------------------
-    
-    # --- Insert your code here ---
-    key_phrases = None # <--- Insert code to get the key phrases with AWS comprehend
+    # --- get the key phrases with AWS comprehend ---
+    key_phrases = comprehend.detect_key_phrases(Text=enquiry_text, LanguageCode='en')
     # -----------------------------
     
     # Get list of phrases in numpy array
@@ -247,24 +247,43 @@ def lambda_handler(event, context):
         phrase = np.append(phrase, key_phrases['KeyPhrases'][i]['Text'])
 
 
-    # ** Use the `email_response` function to generate the text for your email response **
-    # <<< Ensure that the response text is stored in the variable `email_text` >>> 
-    # --- Insert your code here ---
-    # Do not change the name of this variable
-    email_text = email_text = 'Here is the sample mail to test my form submission to EDSA using AWS SES and Lambda Function'
+    # generate the text for your email response
+    topics=['github', 'git', 'Git', 'GitHub', 'projects', 'portfolio', 'Portfolio', 'CV', 'Projects', 'articles']
+    email_text = email_response(dec_dict['name'], critical_phrase_list=topics, list_of_extracted_phrases=phrase, AWS_Comprehend_Sentiment_Dump=sentiment) 
+    # -----------------------------
+            
+
+    # ** SES Functionality **
+    # sender email address
     SENDER = 'victortosin01@gmail.com'
-    RECIPIENT = 'edsa.predicts@explore-ai.net'
+    # -----------------------------
+
+    # recipient
+    RECIPIENT = dec_dict['email']
+    # -----------------------------
+    
+    # Email Subject.
+    # --- DO NOT MODIFY THIS CODE ---
     SUBJECT = f"Data Science Portfolio Project Website - Hello {dec_dict['name']}"
+    # -------------------------------
+
+    # The email body for recipients with non-HTML email clients
     BODY_TEXT = (email_text)
+
+    # The character encoding for the email.
     CHARSET = "UTF-8"
+
+    # Create a new SES service resource
     client = boto3.client('ses')
+
+    # Try to send the email.
     try:
         #Provide the contents of the email.
         ses_response = client.send_email(
             Destination={
                 'ToAddresses': [
                     RECIPIENT,
-                    'edsa.predicts@explore-ai.net',
+                    'edsa.predicts@explore-ai.net', 
                 ],
             },
             Message={
@@ -288,29 +307,7 @@ def lambda_handler(event, context):
         print(e.response['Error']['Message'])
     else:
         print("Email sent! Message ID:"),
-        print(ses_response['MessageId']) 
-
-    
-    # -----------------------------
-            
-
-    # ** SES Functionality **
-
-    # Insert code to send an email, using AWS SES, with the above defined 
-    # `email_text` variable as it's body.
-    # <<< Ensure that the SES service response is stored in the variable `ses_response` >>> 
-    # --- Insert your code here ---
-
-    # Do not change the name of this variable
-    ses_response = None
-    
-    # ...
-
-    # Do not modify the email subject line
-    SUBJECT = f"Data Science Portfolio Project Website - Hello {dec_dict['name']}"
-
-    # -----------------------------
-
+        print(ses_response['MessageId'])
 
     # ** Create a response object to inform the website that the 
     #    workflow executed successfully. Note that this object is 
@@ -330,7 +327,7 @@ def lambda_handler(event, context):
     }
     # -----------------------------
     
-    return lambda_response   
+    return lambda_response  
     
 
 
